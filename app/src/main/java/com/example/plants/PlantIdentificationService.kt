@@ -55,6 +55,7 @@ class PlantIdentificationService {
      */
     suspend fun identifyPlant(bitmap: Bitmap): PlantIdentificationResult = withContext(Dispatchers.IO) {
         try {
+            
             // Convert bitmap to base64
             val base64Image = bitmap.toBase64()
             Log.d("PlantIdentification", "Image converted to base64")
@@ -116,9 +117,38 @@ class PlantIdentificationService {
     }
 
     private fun Bitmap.toBase64(): String {
+        // Scale down bitmap to reduce file size
+        val maxWidth = 1000
+        val maxHeight = 1000
+        val scaleFactor = when {
+            width > height && width > maxWidth -> maxWidth.toFloat() / width.toFloat()
+            height > maxHeight -> maxHeight.toFloat() / height.toFloat()
+            else -> 1.0f
+        }
+        
+        val scaledBitmap = if (scaleFactor < 1.0f) {
+            val newWidth = (width * scaleFactor).toInt()
+            val newHeight = (height * scaleFactor).toInt()
+            Bitmap.createScaledBitmap(this, newWidth, newHeight, true)
+        } else {
+            this
+        }
+        
+        // Compress to JPEG with reduced quality
         val byteArrayOutputStream = ByteArrayOutputStream()
-        this.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream)
+        
+        // Log the size of the compressed image
+        val imageSizeKb = byteArrayOutputStream.size() / 1024
+        Log.d("PlantIdentification", "Compressed image size: $imageSizeKb KB")
+        
         val byteArray = byteArrayOutputStream.toByteArray()
+        
+        // Clean up
+        if (scaledBitmap != this) {
+            scaledBitmap.recycle()
+        }
+        
         return Base64.encodeToString(byteArray, Base64.DEFAULT)
     }
 }
